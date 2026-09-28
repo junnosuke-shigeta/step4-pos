@@ -81,6 +81,10 @@ class ConfirmPurchaseResponse(BaseModel):
     total_amount: Decimal
 
 
+class ResetPasswordRequest(BaseModel):
+    new_password: Annotated[str, StringConstraints(min_length=8, max_length=128)]
+
+
 class PurchaseRecordResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

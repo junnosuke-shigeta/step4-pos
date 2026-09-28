@@ -24,6 +24,7 @@ from .schemas import (
     PurchaseRecordResponse,
     QuoteRequest,
     QuoteResponse,
+    ResetPasswordRequest,
     StaffResponse,
 )
 from .services import calculate_quote, money
@@ -227,10 +228,10 @@ def list_purchases(db: Session = Depends(get_db)):
 
 
 @app.post("/api/admin/staff/{staff_id}/reset-password", dependencies=[Depends(require_admin_cookie)])
-def reset_staff_password(staff_id: str, new_password: str, db: Session = Depends(get_db)):
+def reset_staff_password(staff_id: str, payload: ResetPasswordRequest, db: Session = Depends(get_db)):
     staff = db.get(Staff, staff_id)
     if not staff:
         raise HTTPException(status_code=404, detail="Staff not found")
-    staff.password_hash = hash_password(new_password)
+    staff.password_hash = hash_password(payload.new_password)
     db.commit()
     return {"message": "password reset"}

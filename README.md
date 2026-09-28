@@ -17,7 +17,7 @@
 
 ```bash
 cp .env.example .env
-mysql -h <HOST> -P 3306 -u tech0 -p gen12-mysql-pos < /home/runner/work/step4-pos/step4-pos/pos-app/backend/schema.sql
+mysql -h <HOST> -P 3306 -u tech0 -p gen12-mysql-pos < pos-app/backend/schema.sql
 ```
 
 > `schema.sql` にはローカル検証用の初期データ（`STAFF001/password` など）が含まれます。運用環境では必ず変更してください。
@@ -25,7 +25,7 @@ mysql -h <HOST> -P 3306 -u tech0 -p gen12-mysql-pos < /home/runner/work/step4-po
 ## Backend 起動
 
 ```bash
-cd /home/runner/work/step4-pos/step4-pos/pos-app/backend
+cd pos-app/backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -35,7 +35,7 @@ uvicorn app.main:app --reload --port 8000
 ## Frontend 起動
 
 ```bash
-cd /home/runner/work/step4-pos/step4-pos/pos-app/frontend
+cd pos-app/frontend
 npm install
 npm run dev
 ```
@@ -56,7 +56,7 @@ npm run dev
 ## テスト
 
 ```bash
-cd /home/runner/work/step4-pos/step4-pos/pos-app/backend
+cd pos-app/backend
 pytest -q
 ```
 

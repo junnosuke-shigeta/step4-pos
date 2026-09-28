@@ -26,7 +26,7 @@ class QuoteResult:
     items: list[QuoteItem]
 
 
-_tax_cache: dict[str, tuple[datetime, Decimal]] = {}
+_tax_cache: dict[str, datetime | Decimal | None] = {"expires_at": None, "rate": None}
 
 
 def get_customer_status(db: Session, customer_id: str | None) -> tuple[bool, Customer | None]:
@@ -37,9 +37,10 @@ def get_customer_status(db: Session, customer_id: str | None) -> tuple[bool, Cus
 
 
 def get_effective_tax_rate(db: Session, now: datetime) -> Decimal:
-    cache_key = now.strftime("%Y-%m-%d-%H")
-    if cache_key in _tax_cache and _tax_cache[cache_key][0] > now:
-        return _tax_cache[cache_key][1]
+    expires_at = _tax_cache["expires_at"]
+    rate = _tax_cache["rate"]
+    if isinstance(expires_at, datetime) and isinstance(rate, Decimal) and expires_at > now:
+        return rate
 
     stmt = (
         select(TaxRate)
@@ -51,9 +52,25 @@ def get_effective_tax_rate(db: Session, now: datetime) -> Decimal:
     if not row:
         raise HTTPException(status_code=500, detail="Tax rate is not configured")
 
-    rate = Decimal(str(row.rate))
-    _tax_cache[cache_key] = (now + timedelta(hours=1), rate)
-    return rate
+    next_boundary_stmt = (
+        select(TaxRate.start_date)
+        .where(TaxRate.start_date > now)
+        .order_by(TaxRate.start_date.asc())
+        .limit(1)
+    )
+    next_start = db.execute(next_boundary_stmt).scalar_one_or_none()
+    ttl_expiry = now + timedelta(hours=1)
+    boundaries = [ttl_expiry]
+    if next_start:
+        boundaries.append(next_start)
+    if row.end_date:
+        boundaries.append(row.end_date)
+    expiry = min(boundaries)
+
+    resolved_rate = Decimal(str(row.rate))
+    _tax_cache["expires_at"] = expiry
+    _tax_cache["rate"] = resolved_rate
+    return resolved_rate
 
 
 def get_discounted_unit_price(

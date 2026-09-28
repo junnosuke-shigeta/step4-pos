@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.auth import hash_password
 from app.database import Base, get_db
 from app.main import app
-from app.models import Customer, DiscountPlan, Product, Staff, TaxRate
+from app.models import Customer, DiscountPlan, Product, Purchase, PurchaseItem, Staff, TaxRate
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ def client():
     app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(app) as c:
-        yield c
+        yield c, TestingSessionLocal
 
     app.dependency_overrides.clear()
 
@@ -62,6 +62,7 @@ def login(client):
 
 
 def test_login_success(client):
+    client, _ = client
     response = client.post("/api/auth/login", json={"staff_id": "STAFF001", "password": "password"})
     assert response.status_code == 200
     assert response.json()["staff_id"] == "STAFF001"
@@ -69,6 +70,7 @@ def test_login_success(client):
 
 
 def test_customer_not_found_is_not_error(client):
+    client, _ = client
     login(client)
     response = client.get("/api/customers/UNKNOWN001")
     assert response.status_code == 200
@@ -77,6 +79,7 @@ def test_customer_not_found_is_not_error(client):
 
 
 def test_quote_reapplies_discount_for_member(client):
+    client, _ = client
     login(client)
     payload = {
         "customer_id": "MEM001",
@@ -91,6 +94,7 @@ def test_quote_reapplies_discount_for_member(client):
 
 
 def test_confirm_rejects_amount_tampering(client):
+    client, _ = client
     login(client)
     payload = {
         "customer_id": "MEM001",
@@ -100,3 +104,37 @@ def test_confirm_rejects_amount_tampering(client):
     response = client.post("/api/purchase/confirm", json=payload)
     assert response.status_code == 400
     assert "INVALID_AMOUNT_MISMATCH" in response.json()["message"]
+
+
+def test_confirm_persists_purchase_snapshot_successfully(client):
+    client, TestingSessionLocal = client
+    login(client)
+
+    quote_payload = {
+        "customer_id": "MEM001",
+        "items": [{"product_code": "4901234567894", "quantity": 2}],
+    }
+    quote_res = client.post("/api/purchase/quote", json=quote_payload)
+    assert quote_res.status_code == 200
+    quoted_total = quote_res.json()["total_amount"]
+
+    confirm_res = client.post(
+        "/api/purchase/confirm",
+        json={**quote_payload, "client_total_amount": quoted_total},
+    )
+    assert confirm_res.status_code == 200
+    purchase_id = confirm_res.json()["purchase_id"]
+
+    db = TestingSessionLocal()
+    try:
+        purchase = db.get(Purchase, purchase_id)
+        assert purchase is not None
+        assert str(purchase.total_amount) == "198.00"
+        item = db.query(PurchaseItem).filter(PurchaseItem.purchase_id == purchase_id).one()
+        assert item.product_code == "4901234567894"
+        assert item.quantity == 2
+        assert str(item.base_price) == "100.00"
+        assert str(item.discounted_price) == "90.00"
+        assert str(item.final_amount) == "198.00"
+    finally:
+        db.close()
