@@ -4,9 +4,9 @@ FastAPI + MySQL のバックエンドと Next.js のフロントエンドで構�
 
 ## 構成
 
-- Backend: `/home/runner/work/step4-pos/step4-pos/pos-app/backend`
-- Frontend: `/home/runner/work/step4-pos/step4-pos/pos-app/frontend`
-- DB 初期化 SQL: `/home/runner/work/step4-pos/step4-pos/pos-app/backend/schema.sql`
+- Backend: `pos-app/backend`
+- Frontend: `pos-app/frontend`
+- DB 初期化 SQL: `pos-app/backend/schema.sql`
 
 ## 前提ソフトウェア
 
@@ -111,7 +111,7 @@ mysql -h 127.0.0.1 -P 3306 -u tech0 -p gen12-mysql-pos < pos-app/backend/schema.
 ### 3. Backend を起動する
 
 ```bash
-cd /home/runner/work/step4-pos/step4-pos/pos-app/backend
+cd pos-app/backend
 cp .env.example .env
 python -m venv .venv
 . .venv/bin/activate
@@ -130,7 +130,7 @@ curl http://localhost:8000/health
 別ターミナルで実行します。
 
 ```bash
-cd /home/runner/work/step4-pos/step4-pos/pos-app/frontend
+cd pos-app/frontend
 cp .env.local.example .env.local
 npm ci
 npm run dev
@@ -143,7 +143,7 @@ npm run dev
 ### Backend
 
 ```bash
-cd /home/runner/work/step4-pos/step4-pos/pos-app/backend
+cd pos-app/backend
 . .venv/bin/activate
 pytest -q
 ```
@@ -158,7 +158,7 @@ pytest -q
 ### Frontend
 
 ```bash
-cd /home/runner/work/step4-pos/step4-pos/pos-app/frontend
+cd pos-app/frontend
 npm ci
 npm run lint
 npm run build

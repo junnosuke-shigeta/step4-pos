@@ -158,7 +158,7 @@ export default function Home() {
     return (
       <main>
         <h1>簡易POS（Lv2）</h1>
-        <p>認証状態を確認しています...</p>
+        <p role="status" aria-live="polite">認証状態を確認しています...</p>
       </main>
     );
   }
