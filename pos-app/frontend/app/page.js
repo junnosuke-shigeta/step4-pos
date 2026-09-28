@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
@@ -8,6 +8,7 @@ export default function Home() {
   const [staffId, setStaffId] = useState('STAFF001');
   const [password, setPassword] = useState('password');
   const [loggedIn, setLoggedIn] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [memberId, setMemberId] = useState('');
   const [activeMemberId, setActiveMemberId] = useState(null);
   const [memberMessage, setMemberMessage] = useState('非会員取引');
@@ -29,6 +30,21 @@ export default function Home() {
     });
     return res;
   };
+
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const res = await authFetch('/api/auth/me');
+        if (res.ok) {
+          setLoggedIn(true);
+        }
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+
+    restoreSession();
+  }, []);
 
   const recalc = async (nextItems, customerId) => {
     if (nextItems.length === 0) {
@@ -60,6 +76,18 @@ export default function Home() {
     }
     setLoggedIn(true);
     setMessage('ログインしました');
+  };
+
+  const doLogout = async () => {
+    await authFetch('/api/auth/logout', { method: 'POST' });
+    setLoggedIn(false);
+    setMemberId('');
+    setActiveMemberId(null);
+    setMemberMessage('非会員取引');
+    setBarcode('');
+    setItems([]);
+    setQuote(null);
+    setMessage('ログアウトしました');
   };
 
   const lookupMember = async () => {
@@ -126,6 +154,15 @@ export default function Home() {
     setQuote(null);
   };
 
+  if (!authChecked) {
+    return (
+      <main>
+        <h1>簡易POS（Lv2）</h1>
+        <p>認証状態を確認しています...</p>
+      </main>
+    );
+  }
+
   if (!loggedIn) {
     return (
       <main>
@@ -147,6 +184,7 @@ export default function Home() {
   return (
     <main>
       <h1>簡易POS（Lv2）</h1>
+      <p><button type="button" onClick={doLogout}>ログアウト</button></p>
       <p>会員: {memberMessage}</p>
       <p>
         <label>会員ID <input value={memberId} onChange={(e) => { setMemberId(e.target.value); setActiveMemberId(null); }} /></label>
