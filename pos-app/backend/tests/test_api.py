@@ -1,5 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
+import os
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -154,5 +156,34 @@ def test_confirm_persists_purchase_snapshot_successfully(client):
         assert str(item.base_price) == "100.00"
         assert str(item.discounted_price) == "90.00"
         assert str(item.final_amount) == "198.00"
+    finally:
+        db.close()
+
+
+def test_mysql_integration_smoke_when_configured():
+    mysql_url = os.getenv("MYSQL_TEST_DATABASE_URL")
+    if not mysql_url:
+        pytest.skip("MYSQL_TEST_DATABASE_URL is not set")
+
+    engine = create_engine(mysql_url, pool_pre_ping=True)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base.metadata.create_all(bind=engine)
+
+    suffix = uuid4().hex[:8]
+    staff_id = f"TST{suffix}"
+    product_code = f"99{suffix}"
+    customer_id = f"MEM{suffix}"
+
+    db = SessionLocal()
+    try:
+        db.add(Staff(staff_id=staff_id, name="mysql-staff", password_hash=hash_password("password"), role="STAFF"))
+        db.add(Customer(customer_id=customer_id, name="mysql-member"))
+        db.add(Product(product_code=product_code, name="mysql-product", base_price=Decimal("100.00"), is_active=True))
+        db.add(TaxRate(rate=Decimal("0.10"), start_date=datetime(2020, 1, 1)))
+        db.commit()
+
+        stored = db.get(Product, product_code)
+        assert stored is not None
+        assert str(stored.base_price) == "100.00"
     finally:
         db.close()

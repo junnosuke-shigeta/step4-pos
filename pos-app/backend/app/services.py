@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
+from threading import Lock
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, or_, select
@@ -27,6 +28,7 @@ class QuoteResult:
 
 
 _tax_cache: dict[str, datetime | Decimal | None] = {"expires_at": None, "rate": None}
+_tax_cache_lock = Lock()
 
 
 def get_customer_status(db: Session, customer_id: str | None) -> tuple[bool, Customer | None]:
@@ -37,8 +39,9 @@ def get_customer_status(db: Session, customer_id: str | None) -> tuple[bool, Cus
 
 
 def get_effective_tax_rate(db: Session, now: datetime) -> Decimal:
-    expires_at = _tax_cache["expires_at"]
-    rate = _tax_cache["rate"]
+    with _tax_cache_lock:
+        expires_at = _tax_cache["expires_at"]
+        rate = _tax_cache["rate"]
     if isinstance(expires_at, datetime) and isinstance(rate, Decimal) and expires_at > now:
         return rate
 
@@ -68,8 +71,9 @@ def get_effective_tax_rate(db: Session, now: datetime) -> Decimal:
     expiry = min(boundaries)
 
     resolved_rate = Decimal(str(row.rate))
-    _tax_cache["expires_at"] = expiry
-    _tax_cache["rate"] = resolved_rate
+    with _tax_cache_lock:
+        _tax_cache["expires_at"] = expiry
+        _tax_cache["rate"] = resolved_rate
     return resolved_rate
 
 

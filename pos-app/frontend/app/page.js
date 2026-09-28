@@ -71,6 +71,8 @@ export default function Home() {
     if (!res.ok) {
       const body = await res.json();
       setMessage(body.message || '会員照合に失敗しました');
+      setMemberMessage('非会員取引');
+      await recalc(items, null);
       return;
     }
     const body = await res.json();
