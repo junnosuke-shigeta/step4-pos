@@ -160,6 +160,32 @@ def test_confirm_persists_purchase_snapshot_successfully(client):
         db.close()
 
 
+def test_confirm_non_member_persists_null_customer(client):
+    client, TestingSessionLocal = client
+    login(client)
+
+    quote_payload = {
+        "customer_id": "UNKNOWN999",
+        "items": [{"product_code": "4901234567894", "quantity": 1}],
+    }
+    quote_res = client.post("/api/purchase/quote", json=quote_payload)
+    assert quote_res.status_code == 200
+    confirm_res = client.post(
+        "/api/purchase/confirm",
+        json={**quote_payload, "client_total_amount": quote_res.json()["total_amount"]},
+    )
+    assert confirm_res.status_code == 200
+    purchase_id = confirm_res.json()["purchase_id"]
+
+    db = TestingSessionLocal()
+    try:
+        purchase = db.get(Purchase, purchase_id)
+        assert purchase is not None
+        assert purchase.customer_id is None
+    finally:
+        db.close()
+
+
 def test_mysql_integration_smoke_when_configured():
     mysql_url = os.getenv("MYSQL_TEST_DATABASE_URL")
     if not mysql_url:

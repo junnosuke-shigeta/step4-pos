@@ -42,39 +42,38 @@ def get_effective_tax_rate(db: Session, now: datetime) -> Decimal:
     with _tax_cache_lock:
         expires_at = _tax_cache["expires_at"]
         rate = _tax_cache["rate"]
-    if isinstance(expires_at, datetime) and isinstance(rate, Decimal) and expires_at > now:
-        return rate
+        if isinstance(expires_at, datetime) and isinstance(rate, Decimal) and expires_at > now:
+            return rate
 
-    stmt = (
-        select(TaxRate)
-        .where(and_(TaxRate.start_date <= now, or_(TaxRate.end_date.is_(None), TaxRate.end_date >= now)))
-        .order_by(TaxRate.start_date.desc())
-        .limit(1)
-    )
-    row = db.execute(stmt).scalar_one_or_none()
-    if not row:
-        raise HTTPException(status_code=500, detail="Tax rate is not configured")
+        stmt = (
+            select(TaxRate)
+            .where(and_(TaxRate.start_date <= now, or_(TaxRate.end_date.is_(None), TaxRate.end_date >= now)))
+            .order_by(TaxRate.start_date.desc())
+            .limit(1)
+        )
+        row = db.execute(stmt).scalar_one_or_none()
+        if not row:
+            raise HTTPException(status_code=500, detail="Tax rate is not configured")
 
-    next_boundary_stmt = (
-        select(TaxRate.start_date)
-        .where(TaxRate.start_date > now)
-        .order_by(TaxRate.start_date.asc())
-        .limit(1)
-    )
-    next_start = db.execute(next_boundary_stmt).scalar_one_or_none()
-    ttl_expiry = now + timedelta(hours=1)
-    boundaries = [ttl_expiry]
-    if next_start:
-        boundaries.append(next_start)
-    if row.end_date:
-        boundaries.append(row.end_date)
-    expiry = min(boundaries)
+        next_boundary_stmt = (
+            select(TaxRate.start_date)
+            .where(TaxRate.start_date > now)
+            .order_by(TaxRate.start_date.asc())
+            .limit(1)
+        )
+        next_start = db.execute(next_boundary_stmt).scalar_one_or_none()
+        ttl_expiry = now + timedelta(hours=1)
+        boundaries = [ttl_expiry]
+        if next_start:
+            boundaries.append(next_start)
+        if row.end_date:
+            boundaries.append(row.end_date)
+        expiry = min(boundaries)
 
-    resolved_rate = Decimal(str(row.rate))
-    with _tax_cache_lock:
+        resolved_rate = Decimal(str(row.rate))
         _tax_cache["expires_at"] = expiry
         _tax_cache["rate"] = resolved_rate
-    return resolved_rate
+        return resolved_rate
 
 
 def get_discounted_unit_price(

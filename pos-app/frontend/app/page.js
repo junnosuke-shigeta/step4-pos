@@ -9,6 +9,7 @@ export default function Home() {
   const [password, setPassword] = useState('password');
   const [loggedIn, setLoggedIn] = useState(false);
   const [memberId, setMemberId] = useState('');
+  const [activeMemberId, setActiveMemberId] = useState(null);
   const [memberMessage, setMemberMessage] = useState('非会員取引');
   const [barcode, setBarcode] = useState('');
   const [items, setItems] = useState([]);
@@ -62,22 +63,26 @@ export default function Home() {
   };
 
   const lookupMember = async () => {
-    if (!memberId) {
+    const normalizedMemberId = memberId.trim();
+    if (!normalizedMemberId) {
       setMemberMessage('非会員取引');
+      setActiveMemberId(null);
       await recalc(items, null);
       return;
     }
-    const res = await authFetch(`/api/customers/${encodeURIComponent(memberId)}`);
+    const res = await authFetch(`/api/customers/${encodeURIComponent(normalizedMemberId)}`);
     if (!res.ok) {
       const body = await res.json();
       setMessage(body.message || '会員照合に失敗しました');
       setMemberMessage('非会員取引');
+      setActiveMemberId(null);
       await recalc(items, null);
       return;
     }
     const body = await res.json();
     setMemberMessage(body.message);
-    await recalc(items, body.found ? memberId : null);
+    setActiveMemberId(body.found ? normalizedMemberId : null);
+    await recalc(items, body.found ? normalizedMemberId : null);
   };
 
   const addByBarcode = async () => {
@@ -93,7 +98,7 @@ export default function Home() {
     }
     setItems(current);
     setBarcode('');
-    await recalc(current, memberMessage === '会員を確認しました' ? memberId : null);
+    await recalc(current, activeMemberId);
   };
 
   const confirmPurchase = async () => {
@@ -101,17 +106,22 @@ export default function Home() {
     const res = await authFetch('/api/purchase/confirm', {
       method: 'POST',
       body: JSON.stringify({
-        customer_id: memberMessage === '会員を確認しました' ? memberId : null,
+        customer_id: activeMemberId,
         items,
         client_total_amount: quote.total_amount,
       }),
     });
-    const body = await res.json();
+    let body = null;
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
     if (!res.ok) {
-      setMessage(body.message || '会計に失敗しました');
+      setMessage(body?.message || '会計に失敗しました');
       return;
     }
-    setMessage(`会計完了: 取引ID ${body.purchase_id}`);
+    setMessage(`会計完了: 取引ID ${body?.purchase_id}`);
     setItems([]);
     setQuote(null);
   };
@@ -139,7 +149,7 @@ export default function Home() {
       <h1>簡易POS（Lv2）</h1>
       <p>会員: {memberMessage}</p>
       <p>
-        <label>会員ID <input value={memberId} onChange={(e) => setMemberId(e.target.value)} /></label>
+        <label>会員ID <input value={memberId} onChange={(e) => { setMemberId(e.target.value); setActiveMemberId(null); }} /></label>
         <button type="button" onClick={lookupMember}>照合</button>
       </p>
       <p>
