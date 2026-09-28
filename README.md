@@ -60,6 +60,7 @@ FastAPI + MySQL のバックエンドと Next.js のフロントエンドで構�
 
 | 変数名 | 例 | 用途 |
 | --- | --- | --- |
+| `INTERNAL_API_BASE_URL` | `http://localhost:8000` | Next.js サーバーが backend にプロキシするときの接続先 |
 | `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000` | ブラウザから呼ぶ API のベース URL |
 
 ## Docker で起動する方法
@@ -79,7 +80,8 @@ docker compose up --build
 補足:
 
 - MySQL は `docker-compose.yml` で起動し、初回起動時に `pos-app/backend/schema.sql` が自動実行されます。
-- frontend の API 接続先は `NEXT_PUBLIC_API_BASE_URL` で上書きできます。別端末からアクセスする場合は、`docker compose up` 前に `NEXT_PUBLIC_API_BASE_URL=http://<ホストIP>:8000` を指定してください。
+- 既定では frontend は同一オリジンの `/api/...` を使い、Next.js が backend にプロキシします。Docker Compose では `INTERNAL_API_BASE_URL=http://backend:8000` を使用します。
+- 別構成で直接 backend URL をブラウザへ埋め込みたい場合だけ、`NEXT_PUBLIC_API_BASE_URL` を `http://<ホスト名>:8000` のように設定してください。
 - DB を seed から入れ直したい場合は、次でボリュームごと削除してください。
 
 ```bash
