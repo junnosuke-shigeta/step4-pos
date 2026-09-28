@@ -81,7 +81,7 @@ docker compose up --build
 
 - MySQL は `docker-compose.yml` で起動し、初回起動時に `pos-app/backend/schema.sql` が自動実行されます。
 - 既定では frontend は同一オリジンの `/api/...` を使い、Next.js が backend にプロキシします。Docker Compose では `INTERNAL_API_BASE_URL=http://backend:8000` を使用します。
-- 別構成で直接 backend URL をブラウザへ埋め込みたい場合だけ、`NEXT_PUBLIC_API_BASE_URL` を `http://<ホスト名>:8000` のように設定してください。
+- 別構成で直接 backend URL をブラウザへ埋め込みたい場合だけ、`NEXT_PUBLIC_API_BASE_URL` を `http://<ホスト名>:8000` のように設定してください。その値は frontend の build 時に取り込まれるため、変更した場合は frontend イメージを再 build してください。
 - DB を seed から入れ直したい場合は、次でボリュームごと削除してください。
 
 ```bash
