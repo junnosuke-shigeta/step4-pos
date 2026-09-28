@@ -63,12 +63,18 @@ CREATE TABLE IF NOT EXISTS purchase_item (
 
 -- Default seed data for local verification only.
 INSERT INTO staff (staff_id, name, password_hash, role)
-VALUES ('ADMIN001', '管理者', '$2b$12$Rmb6VBTz7k8VyxQjWmFQfO.3S8NAbqykkKQqfYWZEwcif0ecf8i2u', 'ADMIN')
-ON DUPLICATE KEY UPDATE name = VALUES(name);
+VALUES ('ADMIN001', '管理者', '$2b$12$RG5lDU106nZY.7pbtgvzhe9vfvJU.XfoxhrNXnsAUAepaA/n7t41i', 'ADMIN')
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name),
+  password_hash = VALUES(password_hash),
+  role = VALUES(role);
 
 INSERT INTO staff (staff_id, name, password_hash, role)
-VALUES ('STAFF001', 'レジ担当', '$2b$12$Rmb6VBTz7k8VyxQjWmFQfO.3S8NAbqykkKQqfYWZEwcif0ecf8i2u', 'STAFF')
-ON DUPLICATE KEY UPDATE name = VALUES(name);
+VALUES ('STAFF001', 'レジ担当', '$2b$12$RG5lDU106nZY.7pbtgvzhe9vfvJU.XfoxhrNXnsAUAepaA/n7t41i', 'STAFF')
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name),
+  password_hash = VALUES(password_hash),
+  role = VALUES(role);
 
 INSERT INTO customer (customer_id, name)
 VALUES ('MEM001', 'テスト会員')

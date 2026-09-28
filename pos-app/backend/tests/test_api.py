@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 from app.auth import hash_password
 from app.database import Base, get_db
 from app.main import app
+from app import main as main_module
 from app.models import Customer, DiscountPlan, Product, Purchase, PurchaseItem, Staff, TaxRate
 
 
@@ -182,6 +183,38 @@ def test_confirm_non_member_persists_null_customer(client):
         purchase = db.get(Purchase, purchase_id)
         assert purchase is not None
         assert purchase.customer_id is None
+    finally:
+        db.close()
+
+
+def test_confirm_rolls_back_when_snapshot_save_fails(client, monkeypatch):
+    client, TestingSessionLocal = client
+    login(client)
+
+    quote_payload = {
+        "customer_id": "MEM001",
+        "items": [{"product_code": "4901234567894", "quantity": 1}],
+    }
+    quote_res = client.post("/api/purchase/quote", json=quote_payload)
+    assert quote_res.status_code == 200
+
+    def raise_during_purchase_item(*args, **kwargs):
+        raise RuntimeError("snapshot insert failed")
+
+    monkeypatch.setattr(main_module, "PurchaseItem", raise_during_purchase_item)
+
+    with TestClient(app, raise_server_exceptions=False) as failing_client:
+        failing_client.cookies.update(client.cookies)
+        response = failing_client.post(
+            "/api/purchase/confirm",
+            json={**quote_payload, "client_total_amount": quote_res.json()["total_amount"]},
+        )
+
+    assert response.status_code == 500
+
+    db = TestingSessionLocal()
+    try:
+        assert db.query(Purchase).count() == 0
     finally:
         db.close()
 

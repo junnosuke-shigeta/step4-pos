@@ -36,14 +36,8 @@ def decode_token(token: str) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
 
 
-def get_current_staff(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
-):
-    if credentials is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-
-    payload = decode_token(credentials.credentials)
+def get_staff_from_token(token: str, db: Session):
+    payload = decode_token(token)
     staff_id = payload.get("sub")
     if not staff_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
@@ -52,6 +46,16 @@ def get_current_staff(
     if not staff:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Staff not found")
     return staff
+
+
+def get_current_staff(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+):
+    if credentials is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    return get_staff_from_token(credentials.credentials, db)
 
 
 def require_admin(staff=Depends(get_current_staff)):

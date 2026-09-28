@@ -5,11 +5,10 @@ from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response, 
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .auth import create_access_token, hash_password, verify_password
+from .auth import create_access_token, get_staff_from_token, hash_password, verify_password
 from .config import settings
 from .database import get_db
 from .models import Customer, Product, Purchase, PurchaseItem, Staff
@@ -87,19 +86,7 @@ def get_current_staff_from_cookie(
 ):
     if not pos_access_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    try:
-        payload = jwt.decode(pos_access_token, settings.secret_key, algorithms=["HS256"])
-    except JWTError as exc:
-        raise HTTPException(status_code=401, detail="Invalid token") from exc
-
-    staff_id = payload.get("sub")
-    if not staff_id:
-        raise HTTPException(status_code=401, detail="Invalid token payload")
-
-    staff = db.get(Staff, staff_id)
-    if not staff:
-        raise HTTPException(status_code=401, detail="Staff not found")
-    return staff
+    return get_staff_from_token(pos_access_token, db)
 
 
 def require_admin_cookie(staff=Depends(get_current_staff_from_cookie)):
@@ -119,7 +106,7 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
         key="pos_access_token",
         value=token,
         httponly=True,
-        secure=settings.app_env.lower() == "production",
+        secure=settings.is_production,
         samesite="strict",
         max_age=60 * 60 * settings.access_token_expire_hours,
     )
@@ -197,23 +184,27 @@ def confirm_purchase(payload: ConfirmPurchaseRequest, db: Session = Depends(get_
         total_amount=result.total_amount,
         tax_rate_applied=result.tax_rate,
     )
-    db.add(purchase)
-    db.flush()
+    try:
+        db.add(purchase)
+        db.flush()
 
-    for item in result.items:
-        db.add(
-            PurchaseItem(
-                purchase_id=purchase.id,
-                product_code=item.product_code,
-                product_name=item.product_name,
-                quantity=item.quantity,
-                base_price=item.base_price,
-                discounted_price=item.discounted_price,
-                final_amount=item.final_amount,
+        for item in result.items:
+            db.add(
+                PurchaseItem(
+                    purchase_id=purchase.id,
+                    product_code=item.product_code,
+                    product_name=item.product_name,
+                    quantity=item.quantity,
+                    base_price=item.base_price,
+                    discounted_price=item.discounted_price,
+                    final_amount=item.final_amount,
+                )
             )
-        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
-    db.commit()
     db.refresh(purchase)
     return ConfirmPurchaseResponse(
         purchase_id=purchase.id,
