@@ -15,7 +15,7 @@ class ErrorDetail(BaseModel):
 class ErrorResponse(BaseModel):
     error_code: str
     message: str
-    details: list[ErrorDetail] = []
+    details: list[ErrorDetail] = Field(default_factory=list)
     timestamp: datetime
 
 

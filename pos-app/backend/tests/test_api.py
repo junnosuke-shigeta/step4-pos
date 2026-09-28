@@ -28,6 +28,7 @@ def client():
     db.add(Staff(staff_id="ADMIN001", name="admin", password_hash=hash_password("password"), role="ADMIN"))
     db.add(Customer(customer_id="MEM001", name="member"))
     db.add(Product(product_code="4901234567894", name="water", base_price=Decimal("100.00"), is_active=True))
+    db.add(Product(product_code="4901234567895", name="bread", base_price=Decimal("220.00"), is_active=True))
     db.add(TaxRate(rate=Decimal("0.10"), start_date=datetime(2020, 1, 1)))
     db.add(
         DiscountPlan(
@@ -104,6 +105,23 @@ def test_confirm_rejects_amount_tampering(client):
     response = client.post("/api/purchase/confirm", json=payload)
     assert response.status_code == 400
     assert "INVALID_AMOUNT_MISMATCH" in response.json()["message"]
+
+
+def test_quote_total_matches_sum_of_item_snapshots(client):
+    client, _ = client
+    login(client)
+    payload = {
+        "customer_id": "MEM001",
+        "items": [
+            {"product_code": "4901234567894", "quantity": 1},
+            {"product_code": "4901234567895", "quantity": 1},
+        ],
+    }
+    response = client.post("/api/purchase/quote", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    total_from_items = sum(Decimal(item["final_amount"]) for item in body["items"])
+    assert total_from_items == Decimal(body["total_amount"])
 
 
 def test_confirm_persists_purchase_snapshot_successfully(client):

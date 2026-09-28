@@ -40,6 +40,7 @@ export default function Home() {
     });
     if (!res.ok) {
       const body = await res.json();
+      setQuote(null);
       setMessage(body.message || '計算に失敗しました');
       return;
     }
@@ -67,6 +68,11 @@ export default function Home() {
       return;
     }
     const res = await authFetch(`/api/customers/${encodeURIComponent(memberId)}`);
+    if (!res.ok) {
+      const body = await res.json();
+      setMessage(body.message || '会員照合に失敗しました');
+      return;
+    }
     const body = await res.json();
     setMemberMessage(body.message);
     await recalc(items, body.found ? memberId : null);

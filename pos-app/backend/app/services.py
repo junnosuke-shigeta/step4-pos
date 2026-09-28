@@ -115,7 +115,7 @@ def calculate_quote(db: Session, items: list[CartItemInput], customer_id: str | 
     customer_found, _ = get_customer_status(db, customer_id)
     tax_rate = get_effective_tax_rate(db, now)
 
-    quote_items: list[QuoteItem] = []
+    line_rows: list[dict] = []
     subtotal = Decimal("0")
     for item in items:
         product = db.get(Product, item.product_code)
@@ -125,24 +125,43 @@ def calculate_quote(db: Session, items: list[CartItemInput], customer_id: str | 
         base = Decimal(str(product.base_price))
         discounted = get_discounted_unit_price(db, product, customer_found, now)
         line_base = discounted * item.quantity
-        line_tax = line_base * tax_rate
-        final_amount = money(line_base + line_tax)
 
         subtotal += line_base
-        quote_items.append(
-            QuoteItem(
-                product_code=product.product_code,
-                product_name=product.name,
-                quantity=item.quantity,
-                base_price=money(base),
-                discounted_price=money(discounted),
-                final_amount=final_amount,
-            )
+        line_rows.append(
+            {
+                "product_code": product.product_code,
+                "product_name": product.name,
+                "quantity": item.quantity,
+                "base_price": money(base),
+                "discounted_price": money(discounted),
+                "line_base": line_base,
+            }
         )
 
     subtotal = money(subtotal)
     tax_amount = money(subtotal * tax_rate)
     total = money(subtotal + tax_amount)
+    quote_items: list[QuoteItem] = []
+    allocated_tax = Decimal("0")
+
+    for index, row in enumerate(line_rows):
+        if index < len(line_rows) - 1:
+            line_tax = money(row["line_base"] * tax_rate)
+            allocated_tax += line_tax
+        else:
+            line_tax = tax_amount - allocated_tax
+
+        final_amount = money(row["line_base"] + line_tax)
+        quote_items.append(
+            QuoteItem(
+                product_code=row["product_code"],
+                product_name=row["product_name"],
+                quantity=row["quantity"],
+                base_price=row["base_price"],
+                discounted_price=row["discounted_price"],
+                final_amount=final_amount,
+            )
+        )
 
     return QuoteResult(
         customer_found=customer_found,
